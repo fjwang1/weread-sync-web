@@ -3,6 +3,15 @@ import QRCode from 'qrcode';
 import { getConfirmUrl, getLoginUid } from '../../../src/shared/wereadClient.js';
 import { errorJson, json } from '../_shared.js';
 
+async function createQrDataUrl(value) {
+  const svg = await QRCode.toString(value, {
+    type: 'svg',
+    width: 320,
+    margin: 2
+  });
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 export async function onRequestPost() {
   try {
     const result = await getLoginUid();
@@ -11,10 +20,7 @@ export async function onRequestPost() {
     }
 
     const confirmUrl = getConfirmUrl(result.uid);
-    const qrDataUrl = await QRCode.toDataURL(confirmUrl, {
-      width: 320,
-      margin: 2
-    });
+    const qrDataUrl = await createQrDataUrl(confirmUrl);
 
     return json({
       ok: true,
