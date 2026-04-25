@@ -203,7 +203,7 @@ function renderSyncLoading() {
     <section class="panel loading-panel">
       <div class="loader" aria-hidden="true"></div>
       <h1>正在同步</h1>
-      <p class="loading-line" data-sync-progress>正在实时拉取书籍、划线和书评。</p>
+      <p class="loading-line" data-sync-progress>正在拉取书籍、划线和书评。</p>
       <div class="sync-steps" aria-hidden="true">
         <span></span>
         <span></span>
@@ -449,7 +449,7 @@ async function startSync() {
     const progress = document.querySelector('[data-sync-progress]');
     if (progress) {
       const elapsedSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
-      progress.textContent = `同步进行中，已用时 ${elapsedSeconds} 秒。结果会写入当前浏览器缓存。`;
+      progress.textContent = `正在拉取，已用时 ${elapsedSeconds} 秒。`;
     }
   }, 1000);
 
