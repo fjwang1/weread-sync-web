@@ -491,6 +491,10 @@ body[data-view="detail"] .main {
   font-size: 14px;
 }
 
+.article-actions {
+  margin-top: 18px;
+}
+
 .article-body {
   margin-top: 36px;
   padding-bottom: 40px;

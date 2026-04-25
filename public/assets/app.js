@@ -240,6 +240,13 @@ function setBusy(value) {
   busy = value;
   syncButton.disabled = value;
   loginButton.disabled = value;
+  document.querySelectorAll('[data-refresh-book]').forEach((node) => {
+    node.disabled = value;
+  });
+}
+
+function isAuthenticated() {
+  return Boolean(auth?.vid && auth?.skey);
 }
 
 function hasBooks() {
@@ -247,12 +254,12 @@ function hasBooks() {
 }
 
 function updateHeader() {
-  const authenticated = Boolean(auth?.vid && auth?.skey);
+  const authenticated = isAuthenticated();
   loginButton.hidden = authenticated;
   loginButton.textContent = '登录';
   syncButton.hidden = !authenticated;
   syncStateNode.textContent =
-    hasBooks() && booksIndex?.syncedAt
+    authenticated && hasBooks() && booksIndex?.syncedAt
       ? `${booksIndex.books.length} 本 · ${formatDate(booksIndex.syncedAt)}`
       : '';
 }
@@ -308,7 +315,7 @@ function renderEmptyState() {
   setView('home');
   app.className = 'main';
 
-  if (auth?.vid && auth?.skey) {
+  if (isAuthenticated()) {
     app.innerHTML = `
       <section class="panel">
         <h1>还没有本地缓存</h1>
@@ -323,7 +330,7 @@ function renderEmptyState() {
   app.innerHTML = `
     <section class="panel">
       <h1>登录微信读书</h1>
-      <p>本地还没有可展示的缓存。扫码登录后会自动同步，并在这里展示书籍列表。</p>
+      <p>${hasBooks() ? '请先登录微信读书，登录后可以继续查看本地缓存并更新内容。' : '本地还没有可展示的缓存。扫码登录后会自动同步，并在这里展示书籍列表。'}</p>
       <button class="text-button primary" type="button" data-start-login>显示二维码</button>
     </section>
   `;
@@ -372,6 +379,11 @@ async function renderHome() {
   detailRequestSeq += 1;
   if (!booksIndex) {
     await loadLocalState();
+  }
+
+  if (!isAuthenticated()) {
+    renderEmptyState();
+    return;
   }
 
   if (!hasBooks()) {
@@ -428,6 +440,9 @@ function renderDetailLayout(bookMeta, detail) {
         </div>
         <h1>${escapeHtml(book.title)}</h1>
         <div class="article-meta">${escapeHtml(meta)}</div>
+        <div class="article-actions">
+          <button class="text-button primary" type="button" data-refresh-book>更新本书</button>
+        </div>
         <div class="article-body">${html}</div>
       </article>
       <div class="right-space"></div>
@@ -442,6 +457,10 @@ function renderDetailLayout(bookMeta, detail) {
     node.addEventListener('click', () => navigate(routeBookPath(node.dataset.sideBook)));
   });
 
+  app.querySelector('[data-refresh-book]')?.addEventListener('click', () => {
+    void syncBookDetail(bookMeta);
+  });
+
   if (shouldResetScroll) {
     resetPageScroll();
   }
@@ -450,6 +469,11 @@ function renderDetailLayout(bookMeta, detail) {
 async function renderDetail(bookId) {
   if (!booksIndex) {
     await loadLocalState();
+  }
+
+  if (!isAuthenticated()) {
+    renderEmptyState();
+    return;
   }
 
   const bookMeta = booksIndex?.books?.find((item) => item.bookId === bookId);
