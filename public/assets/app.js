@@ -14,6 +14,7 @@ let booksIndex = null;
 let busy = false;
 let toastTimer = null;
 let detailRequestSeq = 0;
+let activeDetailBookId = null;
 
 function setView(view) {
   document.body.dataset.view = view;
@@ -214,6 +215,17 @@ function navigate(path) {
   void renderRoute();
 }
 
+function resetPageScroll() {
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    app.scrollTop = 0;
+    document.querySelector('.detail')?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.querySelector('.article')?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  });
+}
+
 function showToast(message) {
   window.clearTimeout(toastTimer);
   document.querySelector('.toast')?.remove();
@@ -320,6 +332,7 @@ function renderEmptyState() {
 
 function renderHomeGrid(books) {
   setView('home');
+  activeDetailBookId = null;
   document.title = APP_TITLE;
   app.className = 'main home';
   app.innerHTML = `
@@ -333,7 +346,6 @@ function renderHomeGrid(books) {
             <h2 class="book-title">${escapeHtml(book.title)}</h2>
             <p class="book-author">${escapeHtml(book.author || '未知作者')}</p>
             <div class="book-meta">
-              <span class="status-badge">笔记</span>
               <span>${escapeHtml(noteSummary(book))}</span>
             </div>
           </div>
@@ -400,6 +412,8 @@ function renderDetailLayout(bookMeta, detail) {
     detail?.book?.status ? statusLabel(detail.book.status) : null,
     formatDate(detail?.book?.syncedAt ?? detail?.syncedAt)
   ].filter(Boolean).join(' · ');
+  const shouldResetScroll = activeDetailBookId !== book.bookId;
+  activeDetailBookId = book.bookId;
 
   setView('detail');
   document.title = `${book.title} - ${APP_TITLE}`;
@@ -427,6 +441,10 @@ function renderDetailLayout(bookMeta, detail) {
   app.querySelectorAll('[data-side-book]').forEach((node) => {
     node.addEventListener('click', () => navigate(routeBookPath(node.dataset.sideBook)));
   });
+
+  if (shouldResetScroll) {
+    resetPageScroll();
+  }
 }
 
 async function renderDetail(bookId) {

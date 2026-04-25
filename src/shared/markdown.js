@@ -161,7 +161,7 @@ export function renderBookMarkdown(input) {
   ];
 
   const body = [
-    '# 元数据',
+    '# 简介',
     '',
     `- 书名：${input.bookInfo?.title ?? ''}`,
     `- 作者：${input.bookInfo?.author ?? ''}`,
@@ -241,7 +241,7 @@ function meaningfulLines(section) {
 }
 
 function isEmptyDemoSection(section) {
-  if (!section.heading || section.heading === '元数据') {
+  if (!section.heading || section.heading === '元数据' || section.heading === '简介') {
     return false;
   }
 
