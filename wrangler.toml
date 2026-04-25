@@ -1,0 +1,3 @@
+name = "weread-sync-web"
+pages_build_output_dir = "public"
+compatibility_date = "2026-04-25"
