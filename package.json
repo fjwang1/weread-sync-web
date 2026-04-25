@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node --check public/assets/app.js && node --check functions/api/_shared.js && node --check functions/api/login/start.js && node --check functions/api/login/poll.js && node --check functions/api/sync.js && node --check src/shared/wereadClient.js && node --check src/shared/sync.js && node --check src/shared/markdown.js && node --check src/shared/status.js",
+    "build": "node --check public/assets/app.js && node --check functions/api/_shared.js && node --check functions/api/login/start.js && node --check functions/api/login/poll.js && node --check functions/api/books.js && node --check functions/api/book.js && node --check functions/api/sync.js && node --check src/shared/wereadClient.js && node --check src/shared/sync.js && node --check src/shared/markdown.js && node --check src/shared/status.js",
     "dev": "wrangler pages dev public --compatibility-date=2026-04-25",
     "dev:node": "node scripts/dev-server.mjs",
     "verify:sync": "node scripts/verify-sync.mjs",

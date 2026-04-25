@@ -3,7 +3,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createSnapshot, enrichLoginAuth } from '../src/shared/sync.js';
+import { createBookDetail, createBooksIndex, createSnapshot, enrichLoginAuth } from '../src/shared/sync.js';
 import { getConfirmUrl, getLoginUid, waitForLogin } from '../src/shared/wereadClient.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -71,6 +71,16 @@ async function handleApi(request, response, requestUrl) {
 
   if (requestUrl.pathname === '/api/sync' && request.method === 'POST') {
     sendJson(response, 200, await createSnapshot(await readBody(request)));
+    return;
+  }
+
+  if (requestUrl.pathname === '/api/books' && request.method === 'POST') {
+    sendJson(response, 200, await createBooksIndex(await readBody(request)));
+    return;
+  }
+
+  if (requestUrl.pathname === '/api/book' && request.method === 'POST') {
+    sendJson(response, 200, await createBookDetail(await readBody(request)));
     return;
   }
 

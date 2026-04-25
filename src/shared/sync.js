@@ -41,6 +41,34 @@ function finishTimeValue(progress) {
   return progress?.book?.finishTime ?? null;
 }
 
+function normalizeAuth(auth) {
+  const vid = String(auth?.vid ?? auth?.webLoginVid ?? '');
+  const skey = String(auth?.skey ?? auth?.accessToken ?? '');
+  if (!vid || !skey) {
+    throw new Error('Missing auth. Expected auth.vid and auth.skey.');
+  }
+
+  return { vid, skey };
+}
+
+function notebookBookToIndex(entry) {
+  const book = asRecord(entry?.book);
+  const bookId = readString(book.bookId);
+  if (!bookId) {
+    return null;
+  }
+
+  return {
+    bookId,
+    title: readString(book.title) ?? '未命名书籍',
+    author: readString(book.author) ?? '',
+    coverUrl: extractCoverUrl(book),
+    noteCount: entry.noteCount ?? 0,
+    reviewCount: entry.reviewCount ?? 0,
+    sort: entry.sort ?? 0
+  };
+}
+
 async function mapWithConcurrency(items, concurrency, mapper) {
   const results = new Array(items.length);
   let nextIndex = 0;
@@ -61,10 +89,10 @@ async function mapWithConcurrency(items, concurrency, mapper) {
 }
 
 export async function checkAuth(auth) {
-  const vid = String(auth?.vid ?? auth?.webLoginVid ?? '');
-  const skey = String(auth?.skey ?? auth?.accessToken ?? '');
-
-  if (!vid || !skey) {
+  let normalizedAuth;
+  try {
+    normalizedAuth = normalizeAuth(auth);
+  } catch {
     return {
       authenticated: false,
       valid: false,
@@ -73,6 +101,7 @@ export async function checkAuth(auth) {
   }
 
   try {
+    const { vid, skey } = normalizedAuth;
     await fetchNotebookList(vid, skey);
     return {
       authenticated: true,
@@ -110,13 +139,90 @@ export async function enrichLoginAuth(result) {
   };
 }
 
-export async function createSnapshot(options) {
-  const auth = options?.auth ?? {};
-  const vid = String(auth.vid ?? auth.webLoginVid ?? '');
-  const skey = String(auth.skey ?? auth.accessToken ?? '');
-  if (!vid || !skey) {
-    throw new Error('Missing auth. Expected auth.vid and auth.skey.');
+export async function createBooksIndex(options) {
+  const { vid, skey } = normalizeAuth(options?.auth);
+  const syncedAt = new Date().toISOString();
+  const notebookEntries = await fetchNotebookList(vid, skey);
+  const books = notebookEntries
+    .map((entry) => notebookBookToIndex(entry))
+    .filter(Boolean)
+    .sort((left, right) => right.sort - left.sort);
+
+  return {
+    ok: true,
+    version: 2,
+    syncedAt,
+    totalBooks: notebookEntries.length,
+    bookCount: books.length,
+    books
+  };
+}
+
+export async function createBookDetail(options) {
+  const { vid, skey } = normalizeAuth(options?.auth);
+  const bookId = readString(options?.bookId);
+  if (!bookId) {
+    throw new Error('Missing bookId.');
   }
+
+  const syncedAt = new Date().toISOString();
+  const bookMeta = asRecord(options?.book);
+  const [bookInfo, progress, bookmarks, reviews] = await Promise.all([
+    fetchBookInfo(vid, skey, bookId),
+    fetchBookProgress(vid, skey, bookId),
+    fetchBookmarkList(vid, skey, bookId),
+    fetchReviewList(vid, skey, bookId)
+  ]);
+  const readingProgress = progressValue(progress);
+  const finishTime = finishTimeValue(progress);
+  const status = classifyReadingStatus(readingProgress, finishTime);
+  const bookInfoRecord = {
+    ...bookMeta,
+    ...asRecord(bookInfo),
+    bookId
+  };
+  const coverUrl = extractCoverUrl(bookInfoRecord, bookMeta);
+  const markdown = renderBookMarkdown({
+    syncedAt,
+    bookInfo: {
+      ...bookInfoRecord,
+      bookId,
+      title: readString(bookInfoRecord.title) ?? readString(bookMeta.title) ?? '未命名书籍',
+      author: readString(bookInfoRecord.author) ?? readString(bookMeta.author) ?? '',
+      coverUrl
+    },
+    progress,
+    bookmarks,
+    reviews,
+    status,
+    noteCount: options?.noteCount ?? bookMeta.noteCount ?? 0,
+    reviewCount: options?.reviewCount ?? bookMeta.reviewCount ?? 0
+  });
+
+  return {
+    ok: true,
+    version: 2,
+    syncedAt,
+    book: {
+      bookId,
+      title: readString(bookInfoRecord.title) ?? readString(bookMeta.title) ?? '未命名书籍',
+      author: readString(bookInfoRecord.author) ?? readString(bookMeta.author) ?? '',
+      coverUrl,
+      status,
+      progress: readingProgress,
+      finishTime,
+      noteCount: options?.noteCount ?? bookMeta.noteCount ?? 0,
+      reviewCount: options?.reviewCount ?? bookMeta.reviewCount ?? 0,
+      sort: options?.sort ?? bookMeta.sort ?? 0,
+      syncedAt,
+      markdown,
+      html: renderMarkdownToHtml(markdown)
+    }
+  };
+}
+
+export async function createSnapshot(options) {
+  const { vid, skey } = normalizeAuth(options?.auth);
 
   const includeStatuses = parseIncludeStatuses(options.includeStatuses);
   const syncedAt = new Date().toISOString();

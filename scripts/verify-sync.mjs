@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { createSnapshot } from '../src/shared/sync.js';
+import { createBookDetail, createBooksIndex } from '../src/shared/sync.js';
 import { fetchNotebookList } from '../src/shared/wereadClient.js';
 
 async function readAuth() {
@@ -29,24 +29,26 @@ async function readAuth() {
 }
 
 const auth = await readAuth();
-const bookId = process.argv[2] || (await fetchNotebookList(auth.vid, auth.skey))[0]?.book?.bookId;
+const index = await createBooksIndex({ auth });
+const fallbackBook = index.books[0];
+const bookId = process.argv[2] || fallbackBook?.bookId || (await fetchNotebookList(auth.vid, auth.skey))[0]?.book?.bookId;
 if (!bookId) {
   throw new Error('No notebook book found for verification.');
 }
 
 const startedAt = Date.now();
-const snapshot = await createSnapshot({
+const detail = await createBookDetail({
   auth,
   bookId,
-  includeStatuses: ['reading', 'finished', 'other']
+  book: fallbackBook
 });
 const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-const book = snapshot.books[0];
+const book = detail.book;
 
 console.log(JSON.stringify({
   ok: true,
   elapsedSeconds,
-  bookCount: snapshot.books.length,
+  indexBookCount: index.books.length,
   book: book
     ? {
         bookId: book.bookId,
