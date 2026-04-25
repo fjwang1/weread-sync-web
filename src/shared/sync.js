@@ -102,7 +102,7 @@ export async function checkAuth(auth) {
 
   try {
     const { vid, skey } = normalizedAuth;
-    await fetchNotebookList(vid, skey);
+    await fetchUserInfo(vid, skey);
     return {
       authenticated: true,
       valid: true,

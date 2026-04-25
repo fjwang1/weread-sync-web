@@ -16,6 +16,7 @@ Cloudflare Pages 负责托管前端静态资源；Pages Functions 负责执行 `
 
 - `POST /api/login/start`：生成微信读书登录二维码
 - `GET /api/login/poll?uid=...`：等待扫码结果并返回登录凭证
+- `POST /api/auth/check`：轻量校验浏览器缓存里的登录凭证是否仍然有效
 - `POST /api/books`：实时拉取首页书籍列表，返回封面、标题、作者和笔记数量，由浏览器缓存
 - `POST /api/book`：实时拉取单本书详情，返回划线、书评和渲染后的正文，由浏览器按书籍缓存
 

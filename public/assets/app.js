@@ -15,6 +15,8 @@ let busy = false;
 let toastTimer = null;
 let detailRequestSeq = 0;
 let activeDetailBookId = null;
+let authValidated = false;
+let authValidationPromise = null;
 
 function setView(view) {
   document.body.dataset.view = view;
@@ -137,6 +139,8 @@ async function loadLocalState() {
     dbGet(LEGACY_SNAPSHOT_KEY)
   ]);
   auth = storedAuth;
+  authValidated = false;
+  authValidationPromise = null;
   booksIndex = storedIndex ?? makeBooksIndexFromLegacy(legacySnapshot);
   if (!storedIndex && booksIndex) {
     await dbSet(BOOKS_INDEX_KEY, booksIndex);
@@ -247,6 +251,52 @@ function setBusy(value) {
 
 function isAuthenticated() {
   return Boolean(auth?.vid && auth?.skey);
+}
+
+async function clearAuth() {
+  auth = null;
+  authValidated = false;
+  authValidationPromise = null;
+  await dbDelete('auth');
+  updateHeader();
+}
+
+async function ensureValidAuth() {
+  if (!isAuthenticated()) {
+    return false;
+  }
+
+  if (authValidated) {
+    return true;
+  }
+
+  if (authValidationPromise) {
+    return authValidationPromise;
+  }
+
+  renderLoading('正在校验登录状态...');
+  authValidationPromise = (async () => {
+    try {
+      const result = await api('/api/auth/check', {
+        method: 'POST',
+        body: JSON.stringify({ auth })
+      });
+      if (result.valid) {
+        authValidated = true;
+        updateHeader();
+        return true;
+      }
+    } catch (error) {
+      showToast(error.message);
+    }
+
+    await clearAuth();
+    return false;
+  })().finally(() => {
+    authValidationPromise = null;
+  });
+
+  return authValidationPromise;
 }
 
 function hasBooks() {
@@ -381,7 +431,7 @@ async function renderHome() {
     await loadLocalState();
   }
 
-  if (!isAuthenticated()) {
+  if (!(await ensureValidAuth())) {
     renderEmptyState();
     return;
   }
@@ -471,7 +521,7 @@ async function renderDetail(bookId) {
     await loadLocalState();
   }
 
-  if (!isAuthenticated()) {
+  if (!(await ensureValidAuth())) {
     renderEmptyState();
     return;
   }
@@ -523,9 +573,7 @@ async function handleAuthExpired(error) {
     return false;
   }
 
-  auth = null;
-  await dbDelete('auth');
-  updateHeader();
+  await clearAuth();
   showToast('登录已失效，请重新登录');
   await renderRoute();
   return true;
@@ -566,6 +614,8 @@ async function startLogin(syncAfterLogin) {
       const poll = await api(`/api/login/poll?uid=${encodeURIComponent(payload.uid)}`);
       if (poll.status === 'logged-in') {
         auth = poll.auth;
+        authValidated = true;
+        authValidationPromise = null;
         await dbSet('auth', auth);
         updateHeader();
         showToast('登录成功');
@@ -602,7 +652,7 @@ async function syncBooksIndex() {
     return;
   }
 
-  if (!auth?.vid || !auth?.skey) {
+  if (!isAuthenticated()) {
     await startLogin(true);
     return;
   }
@@ -635,7 +685,7 @@ async function syncBooksIndex() {
 }
 
 async function syncBookDetail(bookMeta, options = {}) {
-  if (!auth?.vid || !auth?.skey) {
+  if (!isAuthenticated()) {
     await startLogin(false);
     return;
   }

@@ -3,7 +3,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createBookDetail, createBooksIndex, createSnapshot, enrichLoginAuth } from '../src/shared/sync.js';
+import { checkAuth, createBookDetail, createBooksIndex, createSnapshot, enrichLoginAuth } from '../src/shared/sync.js';
 import { getConfirmUrl, getLoginUid, waitForLogin } from '../src/shared/wereadClient.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -65,6 +65,15 @@ async function handleApi(request, response, requestUrl) {
       ok: true,
       status: 'waiting',
       reason: result?.logicCode ?? 'waiting'
+    });
+    return;
+  }
+
+  if (requestUrl.pathname === '/api/auth/check' && request.method === 'POST') {
+    const body = await readBody(request);
+    sendJson(response, 200, {
+      ok: true,
+      ...(await checkAuth(body.auth ?? body))
     });
     return;
   }
