@@ -8,6 +8,7 @@ const DB_NAME = 'weread-sync-web';
 const DB_VERSION = 1;
 const BOOKS_INDEX_KEY = 'booksIndex';
 const LEGACY_SNAPSHOT_KEY = 'snapshot';
+const DETAIL_CACHE_VERSION = 3;
 
 let auth = null;
 let booksIndex = null;
@@ -15,8 +16,12 @@ let busy = false;
 let toastTimer = null;
 let detailRequestSeq = 0;
 let activeDetailBookId = null;
+let activeDetailMeta = null;
+let activeDetailData = null;
 let authValidated = false;
 let authValidationPromise = null;
+let detailRefreshLoadingBookId = null;
+const manuallyUpdatedBooks = new Set();
 
 function setView(view) {
   document.body.dataset.view = view;
@@ -126,9 +131,55 @@ function makeBookDetailFromLegacy(snapshot, bookId) {
 
   return {
     ok: true,
-    version: 2,
+    version: DETAIL_CACHE_VERSION,
     syncedAt: book.syncedAt ?? snapshot.syncedAt,
     book
+  };
+}
+
+function readDisplayText(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function normalizeDetailHtml(html) {
+  if (typeof html !== 'string' || !html.trim()) {
+    return '<h2>简介</h2>';
+  }
+
+  const firstHeadingPattern = /^\s*<h([1-5])>.*?<\/h\1>/;
+  if (firstHeadingPattern.test(html)) {
+    return html.replace(firstHeadingPattern, '<h$1>简介</h$1>');
+  }
+
+  return `<h2>简介</h2>${html}`;
+}
+
+function normalizeBookDetail(detail, fallbackBook = {}) {
+  if (!detail?.book?.html) {
+    return null;
+  }
+
+  const mergedBook = {
+    ...fallbackBook,
+    ...(detail.book ?? {})
+  };
+  const title = readDisplayText(mergedBook.title) || readDisplayText(fallbackBook.title) || '未命名书籍';
+  const author = readDisplayText(mergedBook.author) || readDisplayText(fallbackBook.author);
+  const intro = readDisplayText(mergedBook.intro);
+
+  return {
+    ...detail,
+    ok: detail.ok !== false,
+    version: DETAIL_CACHE_VERSION,
+    syncedAt: detail.syncedAt ?? mergedBook.syncedAt ?? null,
+    book: {
+      ...mergedBook,
+      title,
+      author,
+      intro,
+      html: normalizeDetailHtml(mergedBook.html),
+      syncedAt: mergedBook.syncedAt ?? detail.syncedAt ?? null
+    }
   };
 }
 
@@ -151,15 +202,33 @@ async function loadLocalState() {
 async function readBookDetail(bookId) {
   const cachedDetail = await dbGet(bookDetailKey(bookId));
   if (cachedDetail?.book?.html) {
-    return cachedDetail;
+    const normalizedDetail = normalizeBookDetail(
+      cachedDetail,
+      booksIndex?.books?.find((item) => item.bookId === bookId)
+    );
+    if (normalizedDetail) {
+      if (
+        cachedDetail.version !== DETAIL_CACHE_VERSION ||
+        cachedDetail.book.html !== normalizedDetail.book.html ||
+        cachedDetail.book.intro !== normalizedDetail.book.intro
+      ) {
+        await dbSet(bookDetailKey(bookId), normalizedDetail);
+      }
+      return normalizedDetail;
+    }
   }
 
   const legacySnapshot = await dbGet(LEGACY_SNAPSHOT_KEY);
   const legacyDetail = makeBookDetailFromLegacy(legacySnapshot, bookId);
   if (legacyDetail) {
-    await dbSet(bookDetailKey(bookId), legacyDetail);
+    const normalizedDetail = normalizeBookDetail(
+      legacyDetail,
+      booksIndex?.books?.find((item) => item.bookId === bookId)
+    );
+    await dbSet(bookDetailKey(bookId), normalizedDetail);
+    return normalizedDetail;
   }
-  return legacyDetail;
+  return null;
 }
 
 async function api(path, options = {}) {
@@ -460,26 +529,50 @@ function renderSidebar(books, activeBookId) {
   `;
 }
 
+function detailRefreshStatus(bookId) {
+  if (detailRefreshLoadingBookId === bookId) {
+    return 'loading';
+  }
+
+  if (manuallyUpdatedBooks.has(bookId)) {
+    return 'success';
+  }
+
+  return 'idle';
+}
+
+function rerenderActiveDetail() {
+  if (!activeDetailMeta || currentBookId() !== activeDetailMeta.bookId) {
+    return;
+  }
+
+  renderDetailLayout(activeDetailMeta, activeDetailData);
+}
+
 function renderDetailLayout(bookMeta, detail) {
+  const normalizedDetail = normalizeBookDetail(detail, bookMeta);
   const books = booksIndex?.books ?? [bookMeta];
   const book = {
     ...bookMeta,
-    ...(detail?.book ?? {})
+    ...(normalizedDetail?.book ?? {})
   };
-  const html = detail?.book?.html
-    ? detail.book.html
+  const html = normalizedDetail?.book?.html
+    ? normalizedDetail.book.html
     : '<p class="loading-line">正在拉取。</p>';
   const meta = [
     book.author,
-    detail?.book?.status ? statusLabel(detail.book.status) : null,
-    formatDate(detail?.book?.syncedAt ?? detail?.syncedAt)
+    normalizedDetail?.book?.status ? statusLabel(normalizedDetail.book.status) : null,
+    formatDate(normalizedDetail?.book?.syncedAt ?? normalizedDetail?.syncedAt)
   ].filter(Boolean).join(' · ');
   const shouldResetScroll = activeDetailBookId !== book.bookId;
   activeDetailBookId = book.bookId;
+  activeDetailMeta = bookMeta;
+  activeDetailData = normalizedDetail;
 
   setView('detail');
   document.title = `${book.title} - ${APP_TITLE}`;
   app.className = 'main detail';
+  const refreshStatus = detailRefreshStatus(book.bookId);
   app.innerHTML = `
     <section class="detail-layout">
       ${renderSidebar(books, book.bookId)}
@@ -491,7 +584,11 @@ function renderDetailLayout(bookMeta, detail) {
         <h1>${escapeHtml(book.title)}</h1>
         <div class="article-meta">${escapeHtml(meta)}</div>
         <div class="article-actions">
-          <button class="text-button primary" type="button" data-refresh-book>更新本书</button>
+          <button class="text-button primary refresh-button" type="button" data-refresh-book>更新</button>
+          <span class="refresh-indicator refresh-indicator--${refreshStatus}" aria-hidden="${refreshStatus === 'idle' ? 'true' : 'false'}">
+            <span class="status-spinner" aria-hidden="true"></span>
+            <span class="status-check" aria-hidden="true"></span>
+          </span>
         </div>
         <div class="article-body">${html}</div>
       </article>
@@ -510,6 +607,10 @@ function renderDetailLayout(bookMeta, detail) {
   app.querySelector('[data-refresh-book]')?.addEventListener('click', () => {
     void syncBookDetail(bookMeta);
   });
+
+  if (busy) {
+    setBusy(true);
+  }
 
   if (shouldResetScroll) {
     resetPageScroll();
@@ -691,30 +792,47 @@ async function syncBookDetail(bookMeta, options = {}) {
   }
 
   const requestSeq = ++detailRequestSeq;
+  if (!options.silent) {
+    detailRefreshLoadingBookId = bookMeta.bookId;
+  }
   setBusy(true);
+  if (!options.silent) {
+    rerenderActiveDetail();
+  }
 
   try {
-    const payload = await api('/api/book', {
+    const payload = normalizeBookDetail(await api('/api/book', {
       method: 'POST',
       body: JSON.stringify({
         auth,
         bookId: bookMeta.bookId,
         book: bookMeta
       })
-    });
+    }), bookMeta);
     await dbSet(bookDetailKey(bookMeta.bookId), payload);
+    if (detailRefreshLoadingBookId === bookMeta.bookId) {
+      detailRefreshLoadingBookId = null;
+    }
 
     if (currentBookId() === bookMeta.bookId && requestSeq === detailRequestSeq) {
+      if (!options.silent) {
+        manuallyUpdatedBooks.add(bookMeta.bookId);
+      }
       renderDetailLayout(bookMeta, payload);
       if (!options.silent) {
         showToast('同步完成');
       }
     }
   } catch (error) {
+    if (detailRefreshLoadingBookId === bookMeta.bookId) {
+      detailRefreshLoadingBookId = null;
+    }
     if (!(await handleAuthExpired(error))) {
       showToast(error.message);
       if (!options.silent && currentBookId() === bookMeta.bookId) {
         await renderRoute();
+      } else {
+        rerenderActiveDetail();
       }
     }
   } finally {

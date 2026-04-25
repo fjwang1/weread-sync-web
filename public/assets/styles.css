@@ -493,6 +493,64 @@ body[data-view="detail"] .main {
 
 .article-actions {
   margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.refresh-button {
+  min-width: 112px;
+}
+
+.refresh-indicator {
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 14px;
+}
+
+.refresh-indicator--idle {
+  visibility: hidden;
+}
+
+.refresh-indicator--idle .status-spinner,
+.refresh-indicator--idle .status-check,
+.refresh-indicator--success .status-spinner,
+.refresh-indicator--loading .status-check {
+  display: none;
+}
+
+.refresh-indicator--loading {
+  color: var(--theme-accent);
+}
+
+.refresh-indicator--success {
+  color: var(--theme-accent);
+}
+
+.refresh-indicator--loading .status-spinner,
+.refresh-indicator--success .status-check {
+  align-items: center;
+  justify-content: center;
+  display: inline-flex;
+}
+
+.status-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgb(166 124 82 / 24%);
+  border-top-color: var(--theme-accent);
+  border-radius: 999px;
+  animation: spin 800ms linear infinite;
+}
+
+.status-check {
+  width: 14px;
+  height: 8px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg) translateY(-1px);
 }
 
 .article-body {

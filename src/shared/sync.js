@@ -9,6 +9,8 @@ import {
   fetchUserInfo
 } from './wereadClient.js';
 
+const DETAIL_CACHE_VERSION = 3;
+
 function asRecord(value) {
   return value && typeof value === 'object' ? value : {};
 }
@@ -182,6 +184,7 @@ export async function createBookDetail(options) {
     bookId
   };
   const coverUrl = extractCoverUrl(bookInfoRecord, bookMeta);
+  const intro = readString(bookInfoRecord.intro) ?? '';
   const markdown = renderBookMarkdown({
     syncedAt,
     bookInfo: {
@@ -189,6 +192,7 @@ export async function createBookDetail(options) {
       bookId,
       title: readString(bookInfoRecord.title) ?? readString(bookMeta.title) ?? '未命名书籍',
       author: readString(bookInfoRecord.author) ?? readString(bookMeta.author) ?? '',
+      intro,
       coverUrl
     },
     progress,
@@ -201,12 +205,13 @@ export async function createBookDetail(options) {
 
   return {
     ok: true,
-    version: 2,
+    version: DETAIL_CACHE_VERSION,
     syncedAt,
     book: {
       bookId,
       title: readString(bookInfoRecord.title) ?? readString(bookMeta.title) ?? '未命名书籍',
       author: readString(bookInfoRecord.author) ?? readString(bookMeta.author) ?? '',
+      intro,
       coverUrl,
       status,
       progress: readingProgress,
