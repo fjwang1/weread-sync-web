@@ -365,7 +365,6 @@ body[data-view="detail"] .main {
   grid-template-columns: 360px minmax(0, 1fr);
   gap: 0;
   align-items: start;
-  transition: grid-template-columns 260ms ease;
 }
 
 .detail-layout--collapsed {
@@ -398,7 +397,6 @@ body[data-view="detail"] .main {
   overflow: hidden;
   background: rgb(255 255 255 / 96%);
   opacity: 1;
-  transition: opacity 220ms ease, padding 260ms ease, border-color 260ms ease;
 }
 
 .side-head {
@@ -493,6 +491,8 @@ body[data-view="detail"] .main {
   text-align: left;
   cursor: pointer;
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+  content-visibility: auto;
+  contain-intrinsic-size: 96px;
 }
 
 .side-book.active,
@@ -560,8 +560,7 @@ body[data-view="detail"] .main {
   min-width: 0;
   width: min(920px, 100%);
   padding: 38px 48px 72px;
-  transition: width 260ms ease, margin 260ms ease, padding 260ms ease;
-  will-change: width, margin, padding;
+  transform-origin: top left;
 }
 
 .article-top {

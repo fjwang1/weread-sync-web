@@ -10,6 +10,7 @@ const BOOKS_INDEX_KEY = 'booksIndex';
 const LEGACY_SNAPSHOT_KEY = 'snapshot';
 const DETAIL_CACHE_VERSION = 3;
 const SIDEBAR_COLLAPSED_KEY = 'sidebarCollapsed';
+const SIDEBAR_ANIMATION_MS = 300;
 
 let auth = null;
 let booksIndex = null;
@@ -70,25 +71,88 @@ function sidebarToggleButton(extraClass = '') {
   `;
 }
 
-function applySidebarCollapsedState() {
-  const layout = document.querySelector('.detail-layout');
-  if (!layout) {
-    return false;
-  }
-
-  layout.classList.toggle('detail-layout--collapsed', sidebarCollapsed);
+function updateSidebarToggleState() {
   document.querySelectorAll('[data-toggle-sidebar]').forEach((node) => {
     const label = sidebarCollapsed ? '展开书架栏' : '收起书架栏';
     node.setAttribute('aria-label', label);
     node.setAttribute('aria-expanded', String(!sidebarCollapsed));
   });
+}
+
+function shouldAnimateSidebar() {
+  return !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+}
+
+function animateArticleShift(article, firstRect) {
+  const lastRect = article.getBoundingClientRect();
+  const deltaX = firstRect.left - lastRect.left;
+  const deltaY = firstRect.top - lastRect.top;
+
+  if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
+    return;
+  }
+
+  article.getAnimations().forEach((animation) => animation.cancel());
+  article.animate(
+    [
+      { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)` },
+      { transform: 'translate3d(0, 0, 0)' }
+    ],
+    {
+      duration: SIDEBAR_ANIMATION_MS,
+      easing: 'cubic-bezier(0.2, 0, 0, 1)'
+    }
+  );
+}
+
+function animateSidebarPresence(sidebar, collapsed) {
+  sidebar.getAnimations().forEach((animation) => animation.cancel());
+  sidebar.animate(
+    collapsed
+      ? [
+          { opacity: 1, transform: 'translate3d(0, 0, 0)' },
+          { opacity: 0, transform: 'translate3d(-18px, 0, 0)' }
+        ]
+      : [
+          { opacity: 0, transform: 'translate3d(-18px, 0, 0)' },
+          { opacity: 1, transform: 'translate3d(0, 0, 0)' }
+        ],
+    {
+      duration: 220,
+      easing: 'cubic-bezier(0.2, 0, 0, 1)'
+    }
+  );
+}
+
+function applySidebarCollapsedState(options = {}) {
+  const layout = document.querySelector('.detail-layout');
+  if (!layout) {
+    return false;
+  }
+
+  const article = document.querySelector('.article');
+  const sidebar = document.querySelector('.detail-sidebar');
+  const animate = options.animate && article && sidebar && shouldAnimateSidebar();
+  const firstArticleRect = animate ? article.getBoundingClientRect() : null;
+
+  layout.classList.toggle('detail-layout--collapsed', sidebarCollapsed);
+  updateSidebarToggleState();
+
+  if (animate && firstArticleRect) {
+    animateArticleShift(article, firstArticleRect);
+    animateSidebarPresence(sidebar, sidebarCollapsed);
+  }
+
   return true;
 }
 
 function setSidebarCollapsed(value) {
+  if (sidebarCollapsed === value) {
+    return;
+  }
   sidebarCollapsed = value;
   writeSidebarCollapsed(value);
-  if (!applySidebarCollapsedState()) {
+  if (!applySidebarCollapsedState({ animate: true })) {
     rerenderActiveDetail();
   }
 }
@@ -579,7 +643,7 @@ function renderSidebar(books, activeBookId) {
         ${books.map((book) => `
           <button class="side-book ${book.bookId === activeBookId ? 'active' : ''}" type="button" data-side-book="${escapeHtml(book.bookId)}">
             <span class="side-cover">
-              <img src="${escapeHtml(coverSrc(book))}" data-fallback="${escapeHtml(placeholderCover(book))}" alt="" loading="lazy" />
+              <img src="${escapeHtml(coverSrc(book))}" data-fallback="${escapeHtml(placeholderCover(book))}" alt="" loading="lazy" decoding="async" />
             </span>
             <span class="side-book-body">
               <span class="side-book-title">${escapeHtml(book.title)}</span>
