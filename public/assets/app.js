@@ -510,18 +510,29 @@ async function renderHome() {
     return;
   }
 
-  renderHomeGrid(booksIndex.books);
+  const firstBook = booksIndex.books[0];
+  window.history.replaceState({}, '', routeBookPath(firstBook.bookId));
+  await renderDetail(firstBook.bookId);
 }
 
 function renderSidebar(books, activeBookId) {
   return `
     <aside class="detail-sidebar">
-      <button class="side-brand" type="button" data-route-home>${APP_TITLE}</button>
-      <button class="back-button" type="button" data-route-home>返回列表</button>
+      <div class="side-head">
+        <div class="side-brand">${APP_TITLE}</div>
+        <div class="side-count">${books.length} 本</div>
+      </div>
       <div class="detail-side-list">
         ${books.map((book) => `
           <button class="side-book ${book.bookId === activeBookId ? 'active' : ''}" type="button" data-side-book="${escapeHtml(book.bookId)}">
-            ${escapeHtml(book.title)}
+            <span class="side-cover">
+              <img src="${escapeHtml(coverSrc(book))}" data-fallback="${escapeHtml(placeholderCover(book))}" alt="" loading="lazy" />
+            </span>
+            <span class="side-book-body">
+              <span class="side-book-title">${escapeHtml(book.title)}</span>
+              <span class="side-book-author">${escapeHtml(book.author || '未知作者')}</span>
+              <span class="side-book-meta">${escapeHtml(noteSummary(book))}</span>
+            </span>
           </button>
         `).join('')}
       </div>
@@ -578,8 +589,7 @@ function renderDetailLayout(bookMeta, detail) {
       ${renderSidebar(books, book.bookId)}
       <article class="article">
         <div class="article-top">
-          <button class="article-brand" type="button" data-route-home>${APP_TITLE}</button>
-          <button class="back-button" type="button" data-route-home>返回列表</button>
+          <div class="article-brand">${APP_TITLE}</div>
         </div>
         <h1>${escapeHtml(book.title)}</h1>
         <div class="article-meta">${escapeHtml(meta)}</div>
@@ -596,12 +606,14 @@ function renderDetailLayout(bookMeta, detail) {
     </section>
   `;
 
-  app.querySelectorAll('[data-route-home]').forEach((node) => {
-    node.addEventListener('click', () => navigate('/'));
-  });
-
   app.querySelectorAll('[data-side-book]').forEach((node) => {
     node.addEventListener('click', () => navigate(routeBookPath(node.dataset.sideBook)));
+  });
+
+  app.querySelectorAll('.side-cover img').forEach((image) => {
+    image.addEventListener('error', () => {
+      image.src = image.dataset.fallback;
+    }, { once: true });
   });
 
   app.querySelector('[data-refresh-book]')?.addEventListener('click', () => {

@@ -354,14 +354,14 @@ body[data-view="detail"] .main {
 
 .detail {
   width: 100%;
-  max-width: 1392px;
+  max-width: 1600px;
   margin: 0 auto;
-  padding-bottom: 72px;
+  padding-bottom: 0;
 }
 
 .detail-layout {
   display: grid;
-  grid-template-columns: 320px minmax(0, 864px) 208px;
+  grid-template-columns: 360px minmax(0, 1fr);
   gap: 0;
   align-items: start;
 }
@@ -371,87 +371,133 @@ body[data-view="detail"] .main {
   top: 0;
   height: 100vh;
   min-height: 200px;
-  padding: 13px 32px 32px;
+  border-right: 1px solid var(--theme-divider);
+  padding: 22px 18px 24px;
+  overflow: hidden;
+  background: rgb(255 255 255 / 96%);
+}
+
+.side-head {
+  display: flex;
+  min-height: 58px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 4px 16px;
 }
 
 .detail-side-list {
-  margin-top: 24px;
+  height: calc(100vh - 96px);
+  margin: 0 -6px;
+  padding: 0 6px 24px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  overflow: auto;
+  scrollbar-width: thin;
 }
 
 .side-brand {
-  appearance: none;
-  width: 100%;
-  height: 76px;
-  display: flex;
-  align-items: center;
-  border: 0;
-  background: transparent;
-  padding: 0;
   color: var(--theme-text);
   font-family: inherit;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0;
-  text-align: left;
-  cursor: pointer;
 }
 
-.side-brand:hover {
-  color: var(--theme-accent);
-}
-
-.back-button {
-  appearance: none;
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--theme-divider);
-  border-radius: 999px;
-  background: var(--theme-bg);
-  padding: 7px 15px;
-  color: var(--theme-text);
-  font-family: inherit;
-  font-size: 15px;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
-}
-
-.back-button:hover {
-  border-color: var(--theme-accent);
-  background: var(--theme-bg-soft);
-  color: var(--theme-accent);
+.side-count {
+  flex: 0 0 auto;
+  color: var(--theme-text-light);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .side-book {
   appearance: none;
   width: 100%;
-  border: 0;
-  border-left: 2px solid transparent;
-  padding: 6px 0 6px 12px;
+  min-height: 96px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
   background: transparent;
   color: var(--theme-text-light);
   text-align: left;
   cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.side-book.active,
+.side-book:hover {
+  border-color: #eee8e1;
+  border-left-color: var(--theme-accent);
+  background: #fbfaf8;
+  color: var(--theme-text);
+}
+
+.side-cover {
+  width: 50px;
+  height: 70px;
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--theme-divider);
+  border-radius: 4px;
+  background: var(--theme-bg-soft);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 8%);
+}
+
+.side-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.side-book-body {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.side-book-title,
+.side-book-author,
+.side-book-meta {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.side-book.active,
-.side-book:hover {
-  border-left-color: var(--theme-accent);
+.side-book-title {
   color: var(--theme-text);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.side-book-author {
+  color: var(--theme-text-light);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.side-book-meta {
+  color: var(--theme-text-light);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .article {
   min-width: 0;
-  padding: 13px 32px 64px;
+  width: min(920px, 100%);
+  padding: 38px 48px 72px;
 }
 
 .article-top {
@@ -460,20 +506,11 @@ body[data-view="detail"] .main {
 }
 
 .article-brand {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  padding: 0;
   color: var(--theme-text);
   font-family: inherit;
   font-size: 22px;
   font-weight: 800;
   line-height: 1;
-  cursor: pointer;
-}
-
-.article-brand:hover {
-  color: var(--theme-accent);
 }
 
 .article h1 {
@@ -615,7 +652,7 @@ body[data-view="detail"] .main {
 }
 
 .right-space {
-  min-height: 1px;
+  display: none;
 }
 
 .toast {
@@ -680,11 +717,17 @@ body[data-view="detail"] .main {
   }
 
   .detail-layout {
-    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-columns: 300px minmax(0, 1fr);
   }
 
-  .right-space {
-    display: none;
+  .detail-sidebar {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .article {
+    padding-left: 36px;
+    padding-right: 28px;
   }
 }
 
@@ -738,12 +781,53 @@ body[data-view="detail"] .main {
     font-size: 17px;
   }
 
+  .detail {
+    width: 100%;
+  }
+
   .detail-layout {
-    display: block;
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
   }
 
   .detail-sidebar {
-    display: none;
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--theme-divider);
+    padding: 18px 14px 14px;
+  }
+
+  .side-head {
+    min-height: auto;
+    padding: 0 0 12px;
+  }
+
+  .side-brand {
+    font-size: 22px;
+  }
+
+  .detail-side-list {
+    height: auto;
+    margin: 0 -14px;
+    padding: 0 14px 4px;
+    flex-direction: row;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .side-book {
+    width: 244px;
+    min-width: 244px;
+    min-height: 88px;
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .side-cover {
+    width: 44px;
+    height: 62px;
   }
 
   .article-top {
@@ -755,6 +839,11 @@ body[data-view="detail"] .main {
 
   .article h1 {
     font-size: 30px;
+  }
+
+  .article {
+    width: 100%;
+    padding: 24px 18px 56px;
   }
 
   .article-body {
