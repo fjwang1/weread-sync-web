@@ -9,6 +9,7 @@ const DB_VERSION = 1;
 const BOOKS_INDEX_KEY = 'booksIndex';
 const LEGACY_SNAPSHOT_KEY = 'snapshot';
 const DETAIL_CACHE_VERSION = 3;
+const SIDEBAR_COLLAPSED_KEY = 'sidebarCollapsed';
 
 let auth = null;
 let booksIndex = null;
@@ -21,6 +22,7 @@ let activeDetailData = null;
 let authValidated = false;
 let authValidationPromise = null;
 let detailRefreshLoadingBookId = null;
+let sidebarCollapsed = readSidebarCollapsed();
 const manuallyUpdatedBooks = new Set();
 
 function setView(view) {
@@ -38,6 +40,57 @@ function escapeHtml(value) {
 
 function delay(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function readSidebarCollapsed() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function writeSidebarCollapsed(value) {
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(value));
+  } catch {
+    // Local storage is only a convenience; the toggle still works without it.
+  }
+}
+
+function sidebarToggleButton(extraClass = '') {
+  const label = sidebarCollapsed ? '展开书架栏' : '收起书架栏';
+  return `
+    <button class="sidebar-toggle ${extraClass}" type="button" data-toggle-sidebar aria-label="${label}" aria-expanded="${String(!sidebarCollapsed)}">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="4"></rect>
+        <path d="M9 4v16"></path>
+      </svg>
+    </button>
+  `;
+}
+
+function applySidebarCollapsedState() {
+  const layout = document.querySelector('.detail-layout');
+  if (!layout) {
+    return false;
+  }
+
+  layout.classList.toggle('detail-layout--collapsed', sidebarCollapsed);
+  document.querySelectorAll('[data-toggle-sidebar]').forEach((node) => {
+    const label = sidebarCollapsed ? '展开书架栏' : '收起书架栏';
+    node.setAttribute('aria-label', label);
+    node.setAttribute('aria-expanded', String(!sidebarCollapsed));
+  });
+  return true;
+}
+
+function setSidebarCollapsed(value) {
+  sidebarCollapsed = value;
+  writeSidebarCollapsed(value);
+  if (!applySidebarCollapsedState()) {
+    rerenderActiveDetail();
+  }
 }
 
 function openDb() {
@@ -520,7 +573,7 @@ function renderSidebar(books, activeBookId) {
     <aside class="detail-sidebar">
       <div class="side-head">
         <div class="side-brand">${APP_TITLE}</div>
-        <div class="side-count">${books.length} 本</div>
+        ${sidebarToggleButton()}
       </div>
       <div class="detail-side-list">
         ${books.map((book) => `
@@ -585,7 +638,8 @@ function renderDetailLayout(bookMeta, detail) {
   app.className = 'main detail';
   const refreshStatus = detailRefreshStatus(book.bookId);
   app.innerHTML = `
-    <section class="detail-layout">
+    <section class="detail-layout ${sidebarCollapsed ? 'detail-layout--collapsed' : ''}">
+      ${sidebarToggleButton('sidebar-toggle-floating')}
       ${renderSidebar(books, book.bookId)}
       <article class="article">
         <div class="article-top">
@@ -608,6 +662,10 @@ function renderDetailLayout(bookMeta, detail) {
 
   app.querySelectorAll('[data-side-book]').forEach((node) => {
     node.addEventListener('click', () => navigate(routeBookPath(node.dataset.sideBook)));
+  });
+
+  app.querySelectorAll('[data-toggle-sidebar]').forEach((node) => {
+    node.addEventListener('click', () => setSidebarCollapsed(!sidebarCollapsed));
   });
 
   app.querySelectorAll('.side-cover img').forEach((image) => {
